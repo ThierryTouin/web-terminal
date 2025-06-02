@@ -18,7 +18,8 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-const SCRIPT_CMD = '/mnt/data/work/dev-perso/docker-dev-station/environnement/ecmd.sh'; 
+require('dotenv').config();
+const SCRIPT_CMD = process.env.SCRIPT_CMD;
 
 const PORT = process.env.PORT || 3002;
 
