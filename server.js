@@ -85,7 +85,8 @@ io.on('connection', (socket) => {
             socket.emit('terminal:data', normalizeNewlines('  - echo <message> (répète votre message)\n'));
             socket.emit('terminal:data', normalizeNewlines('  - node <fichier.js> (exécute un script Node.js)\n'));
             socket.emit('terminal:data', normalizeNewlines('  - tail -f <fichier> (suivre un fichier log en temps réel)\n'));
-            socket.emit('terminal:data', normalizeNewlines('  - stop-tail (arrêter le processus tail en cours)\n'));
+            //socket.emit('terminal:data', normalizeNewlines('  - stop-tail (arrêter le processus tail en cours)\n'));
+            socket.emit('terminal:data', normalizeNewlines('  - script1 <args> (execute le script définit dans SCRIPT_CMD )\n'));
             socket.emit('terminal:data', normalizeNewlines('  - top-snapshot (affiche un instantané des processus)\n'));
             socket.emit('terminal:data', normalizeNewlines('  - exit (déconnecte le client)\n'));
         } else if (command.startsWith('ls')) { 
