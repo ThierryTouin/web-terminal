@@ -97,9 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-
+        if (data === '\x03') { // Ctrl+C
+            console.log('script:interrupt');
+            socket.emit('script:interrupt');
+            return;
         // Gérer la touche Entrée
-        if (data === '\r') {
+        } else if (data === '\r') {
             term.write(data); // Echo le retour chariot pour passer à la ligne
             if (inputBuffer.length > 0) { // N'ajoute pas de commandes vides à l'historique
                 commandHistory.push(inputBuffer);

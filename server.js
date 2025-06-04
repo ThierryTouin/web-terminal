@@ -17,6 +17,7 @@ const handleScript = require('./commands/scriptExecutor');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+const activeProcesses = new Map(); // socket.id -> child
 
 require('dotenv').config();
 const SCRIPT_CMD = process.env.SCRIPT_CMD;
@@ -40,6 +41,37 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Client déconnecté.');
         tailManager.killCurrentTailProcess(); // Appeler la fonction de nettoyage
+    });
+
+    socket.on('script:interrupt', () => {
+        console.log(`Socket reçoit le message : script:interrupt`);
+        const child = activeProcesses.get(socket.id);
+        //console.log(`socket : ${JSON.stringify(child)}`);
+        console.log(`child.pid : ${child.pid}`);
+
+
+        if (child && child.pid) {
+            try {
+                process.kill(-child.pid, 'SIGINT'); // kill group
+                console.log('child killed !');
+                socket.emit('terminal:data', 'Script interrompu avec Ctrl+C\n');
+            } catch (err) {
+                if (err.code === 'ESRCH') {
+                    console.warn('Le processus ou groupe n’existe plus (déjà terminé)');
+                } else {
+                    console.error('Erreur lors du kill :', err);
+                }
+
+                console.log('tentative de kill en single !')
+                child.kill('SIGINT');
+                console.log('child killed !')
+
+            }
+        } else {
+            socket.emit('terminal:data', 'Aucun script à interrompre\n');
+        }
+
+
     });
 
     socket.on('terminal:input', async (input) => {
@@ -73,18 +105,36 @@ io.on('connection', (socket) => {
             handleNodeScript(socket, normalizeNewlines, scriptPath, __dirname);
         } else if (command.startsWith('tail -f ')) {
             const filePath = command.substring('tail -f '.length).trim();
-            await tailManager.startTail(socket, normalizeNewlines, filePath, false);
-        } else if (command === 'stop-tail') {
-            tailManager.stopTail(socket, normalizeNewlines);
+            const child = await tailManager.startTail(socket, normalizeNewlines, filePath, false);
+
+            activeProcesses.set(socket.id, child);
+
+            child.on('close', () => {
+                activeProcesses.delete(socket.id);
+            });            
+
+        // } else if (command === 'stop-tail') {
+        //     tailManager.stopTail(socket, normalizeNewlines);
         } else if (command === 'top-snapshot') {
             handleTopSnapshot(socket, normalizeNewlines);
         } else if (command.startsWith('script1')) {
             const args = command.substring('script1'.length).trim();
             const fullAliasCommand = `${SCRIPT_CMD} ${args}`;
-            handleScript(socket, normalizeNewlines, fullAliasCommand);
+            const child = handleScript(socket, normalizeNewlines, fullAliasCommand);
+
+            activeProcesses.set(socket.id, child);
+
+            child.on('close', () => {
+                activeProcesses.delete(socket.id);
+            });
         } else if (command === 'exit') {
             socket.emit('terminal:data', 'Déconnexion...\r\n');
             socket.disconnect();
+
+            const child = activeProcesses.get(socket.id);
+            if (child) process.kill(-child.pid, 'SIGINT'); 
+            activeProcesses.delete(socket.id);            
+
         } else {
             socket.emit('terminal:data', normalizeNewlines(`Commande inconnue: "${command}". Tapez "aide" pour les commandes disponibles.\n`));
         }

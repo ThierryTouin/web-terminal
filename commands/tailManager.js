@@ -48,7 +48,8 @@ const startTail = async (socket, normalizeNewlines, userInputCommand, useFilter 
         const grepArgs = ['--color=always', '-E', "ERROR|WARN|DEBUG"];
         const grepChild = spawn('grep', grepArgs, {
             env: commonEnv,
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            detached: true
         });
 
         currentGreppedTailProcess = grepChild;
@@ -106,26 +107,28 @@ const startTail = async (socket, normalizeNewlines, userInputCommand, useFilter 
             currentGreppedTailProcess = null;
         }
     });
+
+    return tailChild;
 };
 
-const stopTail = (socket, normalizeNewlines) => {
-    let message = '';
-    if (currentTailProcess) {
-        message += `Arrêt du processus 'tail -f' pour ${currentTailFilePath}...\n`;
-        currentTailProcess.kill();
-        currentTailProcess = null;
-        currentTailFilePath = null;
-    }
-    if (currentGreppedTailProcess) {
-        message += `Arrêt du processus 'grep' associé...\n`;
-        currentGreppedTailProcess.kill();
-        currentGreppedTailProcess = null;
-    }
-    if (!message) {
-        message = `Aucun processus 'tail -f' ou 'grep' n'est en cours.\n`;
-    }
-    socket.emit('terminal:data', normalizeNewlines(message));
-};
+// const stopTail = (socket, normalizeNewlines) => {
+//     let message = '';
+//     if (currentTailProcess) {
+//         message += `Arrêt du processus 'tail -f' pour ${currentTailFilePath}...\n`;
+//         currentTailProcess.kill();
+//         currentTailProcess = null;
+//         currentTailFilePath = null;
+//     }
+//     if (currentGreppedTailProcess) {
+//         message += `Arrêt du processus 'grep' associé...\n`;
+//         currentGreppedTailProcess.kill();
+//         currentGreppedTailProcess = null;
+//     }
+//     if (!message) {
+//         message = `Aucun processus 'tail -f' ou 'grep' n'est en cours.\n`;
+//     }
+//     socket.emit('terminal:data', normalizeNewlines(message));
+// };
 
 const killCurrentTailProcess = () => {
     if (currentTailProcess) {
@@ -143,6 +146,6 @@ const killCurrentTailProcess = () => {
 
 module.exports = {
     startTail,
-    stopTail,
+    //stopTail,
     killCurrentTailProcess
 };

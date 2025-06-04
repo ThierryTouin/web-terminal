@@ -1,19 +1,18 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-module.exports = async (socket, normalizeNewlines, fullCommand) => {
-    // Découpe le fullCommand en tableau : [scriptPath, arg1, arg2, ...]
+module.exports = (socket, normalizeNewlines, fullCommand) => {
     const argsArray = fullCommand.trim().split(/\s+/);
     const scriptPath = argsArray.shift();
 
-    // Vérifie que le chemin est absolu ou le rend relatif
     const resolvedScriptPath = path.isAbsolute(scriptPath)
         ? scriptPath
         : path.resolve(process.cwd(), scriptPath);
 
     const child = spawn(resolvedScriptPath, argsArray, {
         env: { ...process.env, TERM: 'xterm-256color', FORCE_COLOR: '1' },
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true
     });
 
     socket.emit('terminal:data', normalizeNewlines(`Exécution du script : ${resolvedScriptPath} ${argsArray.join(' ')}\n`));
@@ -33,4 +32,6 @@ module.exports = async (socket, normalizeNewlines, fullCommand) => {
     child.on('error', (err) => {
         socket.emit('terminal:data', normalizeNewlines(`Erreur lors de l'exécution du script : ${err.message}\n`));
     });
+
+    return child; // 🔥 Renvoie le process pour pouvoir l’arrêter plus tard
 };
