@@ -18,6 +18,8 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const activeProcesses = new Map(); // socket.id -> child
+// const terminalSessions = {}; // socket.id -> process
+
 
 require('dotenv').config();
 const SCRIPT_CMD = process.env.SCRIPT_CMD;
