@@ -47,10 +47,9 @@ io.on('connection', (socket) => {
         console.log(`Socket reçoit le message : script:interrupt`);
         const child = activeProcesses.get(socket.id);
         //console.log(`socket : ${JSON.stringify(child)}`);
-        console.log(`child.pid : ${child.pid}`);
-
 
         if (child && child.pid) {
+            console.log(`child.pid : ${child.pid}`);
             try {
                 process.kill(-child.pid, 'SIGINT'); // kill group
                 console.log('child killed !');
