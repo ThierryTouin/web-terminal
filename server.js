@@ -88,7 +88,7 @@ io.on('connection', (socket) => {
         // une commande a été reçue, vide ou autre, on saute une ligne
         //socket.emit('terminal:data', '\n');
         //socket.emit('terminal:data', `>>> ${command}\r\n`);
-        socket.emit('terminal:data', `\x1b[3m\x1b[33m> ${command}\x1b[0m\r\n`);
+        socket.emit('terminal:data', `\x1b[3m\x1b[33m> ${command} ↵\x1b[0m\r\n`);
 
         
 
