@@ -43,7 +43,7 @@ io.on('connection', (socket) => {
 
     serverLogger.info(`Nouvelle connexion client : ${socket.id}`);
 
-    socket.emit('terminal:data', 'Bienvenue au terminal simplifié ! Tapez "aide" pour les commandes disponibles.\r\n');
+    socket.emit('terminal:data', `Bienvenue au terminal [${socket.id}] simplifié !\r\nTapez "aide" pour les commandes disponibles.\r\n`);
 
     // Assurez-vous de tuer le processus tail si le client se déconnecte
     socket.on('disconnect', () => {
@@ -75,7 +75,7 @@ io.on('connection', (socket) => {
 
             }
         } else {
-            socket.emit('terminal:data', 'Aucun script à interrompre\n');
+            socket.emit('terminal:data', 'Aucun script à interrompre\r\n');
         }
 
 
@@ -84,6 +84,13 @@ io.on('connection', (socket) => {
     socket.on('terminal:input', async (input) => {
         const command = input.trim();
         serverLogger.info(`${socket.id} : Commande reçue : "${command}"`);
+
+        // une commande a été reçue, vide ou autre, on saute une ligne
+        //socket.emit('terminal:data', '\n');
+        //socket.emit('terminal:data', `>>> ${command}\r\n`);
+        socket.emit('terminal:data', `\x1b[3m\x1b[33m> ${command}\x1b[0m\r\n`);
+
+        
 
         if (command === 'aide') {
             socket.emit('terminal:data', normalizeNewlines('Commandes disponibles :\n'));
@@ -144,7 +151,9 @@ io.on('connection', (socket) => {
             activeProcesses.delete(socket.id);            
 
         } else {
-            socket.emit('terminal:data', normalizeNewlines(`Commande inconnue: "${command}". Tapez "aide" pour les commandes disponibles.\n`));
+            if (command && command.length > 0) {
+                socket.emit('terminal:data', normalizeNewlines(`Commande inconnue: "${command}".\r\nTapez "aide" pour les commandes disponibles.\n`));
+            }
         }
     });
 
