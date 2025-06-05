@@ -14,7 +14,7 @@ const startTail = async (socket, normalizeNewlines, userInputCommand, useFilter 
     }
 
     let filePath = userInputCommand;
-    console.log(`Chemin du fichier extrait: ${filePath}`);
+    //console.log(`Chemin du fichier extrait: ${filePath}`);
 
     if (!filePath) {
         socket.emit('terminal:data', normalizeNewlines(`Erreur: Le chemin du fichier est manquant pour la commande 'tail -f'.\n`));

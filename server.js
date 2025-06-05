@@ -1,3 +1,8 @@
+const Logger = require('./util/logger');
+
+// Créer une instance du logger pour le module principal de l'application
+const serverLogger = new Logger('server.js');
+
 // server.js
 const express = require('express');
 const http = require('http');
@@ -35,37 +40,38 @@ function normalizeNewlines(data) {
 }
 
 io.on('connection', (socket) => {
-    console.log('Nouvelle connexion client !');
+
+    serverLogger.info(`Nouvelle connexion client : ${socket.id}`);
 
     socket.emit('terminal:data', 'Bienvenue au terminal simplifié ! Tapez "aide" pour les commandes disponibles.\r\n');
 
     // Assurez-vous de tuer le processus tail si le client se déconnecte
     socket.on('disconnect', () => {
-        console.log('Client déconnecté.');
+        serverLogger.info(`Client déconnecté : ${socket.id}`);
         tailManager.killCurrentTailProcess(); // Appeler la fonction de nettoyage
     });
 
     socket.on('script:interrupt', () => {
-        console.log(`Socket reçoit le message : script:interrupt`);
+        serverLogger.info(`${socket.id} : Socket reçoit le message : script:interrupt`);
         const child = activeProcesses.get(socket.id);
-        //console.log(`socket : ${JSON.stringify(child)}`);
+        //serverLogger.info(`socket : ${JSON.stringify(child)}`);
 
         if (child && child.pid) {
-            console.log(`child.pid : ${child.pid}`);
+            serverLogger.info(`${socket.id} : child.pid : ${child.pid}`);
             try {
                 process.kill(-child.pid, 'SIGINT'); // kill group
-                console.log('child killed !');
+                serverLogger.info(`${socket.id} : child killed !`);
                 socket.emit('terminal:data', 'Script interrompu avec Ctrl+C\n');
             } catch (err) {
                 if (err.code === 'ESRCH') {
-                    console.warn('Le processus ou groupe n’existe plus (déjà terminé)');
+                    serverLogger.warn(`${socket.id} : Le processus ou groupe n’existe plus (déjà terminé)`);
                 } else {
-                    console.error('Erreur lors du kill :', err);
+                    serverLogger.error(`${socket.id} : Erreur lors du kill :`, err);
                 }
 
-                console.log('tentative de kill en single !')
+                serverLogger.info(`${socket.id} : Tentative de kill en single !`)
                 child.kill('SIGINT');
-                console.log('child killed !')
+                serverLogger.info(`${socket.id} : child killed !`)
 
             }
         } else {
@@ -77,7 +83,7 @@ io.on('connection', (socket) => {
 
     socket.on('terminal:input', async (input) => {
         const command = input.trim();
-        console.log(`Commande reçue : "${command}"`);
+        serverLogger.info(`${socket.id} : Commande reçue : "${command}"`);
 
         if (command === 'aide') {
             socket.emit('terminal:data', normalizeNewlines('Commandes disponibles :\n'));
@@ -143,10 +149,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('terminal:resize', ({ cols, rows }) => {
-        console.log(`Client demande un redimensionnement à ${cols}x${rows}`);
+        serverLogger.info(`${socket.id} : Client demande un redimensionnement à ${cols}x${rows}`);
     });
 });
 
 server.listen(PORT, () => {
-    console.log(`Serveur démarré sur http://localhost:${PORT}`);
+    serverLogger.info(`Serveur démarré sur http://localhost:${PORT}`);
 });
