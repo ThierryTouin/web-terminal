@@ -38,62 +38,55 @@ document.addEventListener('DOMContentLoaded', () => {
     fitAddon.fit();
 
     let inputBuffer = '';
-    // --- NOUVEAU : Historique des commandes ---
-    const commandHistory = [];
-    let historyIndex = -1; // -1 signifie que nous ne sommes pas en train de naviguer dans l'historique
 
-    // Fonction pour effacer la ligne courante dans le terminal (utile pour l'historique)
-    function clearCurrentLine() {
-        term.write('\x1b[2K\r'); // Efface la ligne complète et ramène le curseur au début
+    // --- Historique des commandes dans localStorage ---
+    const HISTORY_KEY = 'terminal_command_history';
+    let commandHistory = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+    let historyIndex = -1;
+
+    function saveHistory() {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(commandHistory));
     }
 
-    // Gérer les données reçues du serveur
+    function clearCurrentLine() {
+        term.write('\x1b[2K\r');
+    }
+
+    function replaceCurrentCommand(newCommand) {
+        clearCurrentLine();
+        inputBuffer = newCommand;
+        term.write(inputBuffer);
+    }
+
     socket.on('terminal:data', (data) => {
         term.write(data);
     });
 
-// public/client.js (extrait de term.onData)
-
-    // Gérer les saisies de l'utilisateur
     term.onData((data) => {
         const charCode = data.charCodeAt(0);
 
-        // Détection des flèches Haut et Bas
-        if (charCode === 27) { // ASCII 27 est le début d'une séquence d'échappement (pour les flèches)
-            // Nous ne faisons PAS un term.write(data) ici pour les séquences d'échappement complètes
-            // car xterm.js les interprète directement (cursor movement, etc.).
-            // Si vous le faites, cela affichera des caractères bizarres comme `^[[A` dans le terminal.
-
-            // Séquence de flèche Haut: \x1b[A
-            // Séquence de flèche Bas: \x1b[B
-            if (data === '\x1b[A') { // Flèche Haut
+        if (charCode === 27) {
+            if (data === '\x1b[A') { // ↑
                 if (historyIndex === -1) {
-                    historyIndex = commandHistory.length - 1; // Commence par la dernière commande
+                    historyIndex = commandHistory.length - 1;
                 } else if (historyIndex > 0) {
                     historyIndex--;
                 }
 
                 if (historyIndex >= 0) {
-                    clearCurrentLine();
-                    inputBuffer = commandHistory[historyIndex];
-                    term.write(inputBuffer);
+                    replaceCurrentCommand(commandHistory[historyIndex]);
                 }
-                return; // Ne pas traiter comme une entrée normale
-            } else if (data === '\x1b[B') { // Flèche Bas
+                return;
+            } else if (data === '\x1b[B') { // ↓
                 if (historyIndex !== -1 && historyIndex < commandHistory.length - 1) {
                     historyIndex++;
-                    clearCurrentLine();
-                    inputBuffer = commandHistory[historyIndex];
-                    term.write(inputBuffer);
+                    replaceCurrentCommand(commandHistory[historyIndex]);
                 } else {
-                    // Si on est à la fin de l'historique ou qu'on n'est pas en navigation, on efface la ligne
-                    historyIndex = -1; // Réinitialiser pour éviter de boucler sur la dernière commande
-                    clearCurrentLine();
-                    inputBuffer = '';
+                    historyIndex = -1;
+                    replaceCurrentCommand('');
                 }
-                return; // Ne pas traiter comme une entrée normale
+                return;
             }
-            // Si c'est une autre séquence d'échappement non gérée (ex: F1, F2), on l'ignore
             return;
         }
 
@@ -101,33 +94,38 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('script:interrupt');
             socket.emit('script:interrupt');
             return;
-        // Gérer la touche Entrée
-        } else if (data === '\r') {
-            term.write(data); // Echo le retour chariot pour passer à la ligne
-            if (inputBuffer.length > 0) { // N'ajoute pas de commandes vides à l'historique
+        } else if (data === '\r') { // Entrée
+            term.write(data);
+            if (inputBuffer.length > 0) {
                 commandHistory.push(inputBuffer);
-                // Optionnel: Limiter la taille de l'historique, ex: 100 commandes
-                if (commandHistory.length > 100) {
-                    commandHistory.shift(); // Supprime la plus ancienne
-                }
+                if (commandHistory.length > 100) commandHistory.shift();
+                saveHistory();
             }
-            socket.emit('terminal:input', inputBuffer);
-            inputBuffer = ''; // Réinitialiser le buffer
-            historyIndex = -1; // Réinitialiser l'index de l'historique
-        } else if (data === '\x7F') { // Touche Backspace (ASCII 127)
+            // Commandes spéciales côté client (ne pas envoyer au serveur)
+            if (inputBuffer === 'history') {
+                term.write('\r\nCommand History:\r\n');
+                commandHistory.forEach((cmd, index) => {
+                    term.write(`  ${index + 1}: ${cmd}\r\n`);
+                });
+            } else {
+                // Envoi normal au serveur
+                socket.emit('terminal:input', inputBuffer);
+            }
+
+            inputBuffer = '';
+            historyIndex = -1;
+        } else if (data === '\x7F') { // Backspace
             if (inputBuffer.length > 0) {
                 inputBuffer = inputBuffer.slice(0, -1);
-                term.write('\x1b[D'); // Déplacer le curseur à gauche
-                term.write('\x1b[K'); // Effacer jusqu'à la fin de la ligne
+                term.write('\x1b[D');
+                term.write('\x1b[K');
             }
         } else {
-            // C'est un caractère normal : l'ajouter au buffer et l'afficher
             inputBuffer += data;
-            term.write(data); // <--- C'est cette ligne qui était manquante ou mal placée !
+            term.write(data);
         }
     });
 
-    // Gérer le redimensionnement de la fenêtre du navigateur
     window.addEventListener('resize', () => {
         fitAddon.fit();
         socket.emit('terminal:resize', {
@@ -136,11 +134,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Envoyer la taille initiale du terminal au serveur
     socket.emit('terminal:resize', {
         cols: term.cols,
         rows: term.rows
     });
 
-    term.focus(); // Mettre le focus sur le terminal
+    term.focus();
 });
